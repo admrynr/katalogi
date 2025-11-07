@@ -145,8 +145,23 @@ function Dashboard() {
 
   async function handleEdit(p){ // p may include brands object
     setForm({ id:p.id, code:p.code, name:p.name, brand_name: p.brands?.name || '', brand_id: p.brand_id || null, category:p.category, price:p.price ?? '', available:!!p.available, affiliate_url:p.affiliate_url || '', image_url:p.image_url || '' }); setSelectedBrandId(p.brand_id || null); window.scrollTo({top:0, behavior:'smooth'}); }
-
-  async function handleDelete(id){ if (!confirm('Hapus produk ini?')) return; const { error } = await supabase.from('products').delete().eq('id', id); if (error) toast.error('Gagal menghapus'); else { toast.success('Produk dihapus'); fetchProducts(); } }
+  
+  async function handleConfirmDelete(id){
+    toast('Hapus produk ini?', {
+      action: {
+        label: 'Hapus',
+        onClick: () => handleDelete(id),
+      },
+      cancel: {
+        label: 'Batal'
+      }
+    })
+  }
+  async function handleDelete(id){
+    const { error } = await supabase.from('products').delete().eq('id', id); 
+    if (error) toast.error('Gagal menghapus'); else { toast.success('Produk dihapus'); 
+      fetchProducts(); } 
+  }
 
   // suggestions filtered locally for instant UX
   const brandSuggestions = brandQuery ? brands.filter(b => b.name.toLowerCase().includes(brandQuery.toLowerCase())).slice(0,8) : [];
@@ -228,7 +243,11 @@ function Dashboard() {
                       <h4 className="font-semibold text-sm">{p.name}</h4>
                       <p className="text-xs text-gray-500 dark:text-gray-300">{p.brands?.name || '—'}</p>
                       <p className="text-sm font-bold mt-1">Rp{formatPrice(p.price)}</p>
-                      <div className="flex gap-2 mt-3"><button onClick={()=>handleEdit(p)} className="bg-blue-600 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-700">Edit</button><button onClick={()=>handleDelete(p.id)} className="bg-red-100 text-red-600 px-3 py-1 rounded-md text-xs">Hapus</button></div>
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={()=>handleEdit(p)} className="bg-blue-600 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-700">Edit</button>
+                        <button onClick={()=>
+                          handleConfirmDelete(p.id)
+                        } className="bg-red-100 text-red-600 px-3 py-1 rounded-md text-xs">Hapus</button></div>
                     </div>
                   ))}
                 </div>
