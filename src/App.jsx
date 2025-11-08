@@ -274,7 +274,7 @@ function Catalog(){
 
   const grouped = {}; categoriesOrder.forEach(cat => grouped[cat]=[]); filtered.forEach(p=>{ const cat = categoriesOrder.includes(p.category)? p.category : 'Other'; if (!grouped[cat]) grouped[cat]=[]; grouped[cat].push(p); });
 
-  const categoryIcons = { Shirts:'👕','T-Shirts':'👚',Jackets:'🧥',Pants:'👖',Accessories:'🕶️',Shoes:'👟',Bags:'👜',Other:'📦' };
+  const categoryIcons = { Shirts:'👕','TShirts':'👚',Jackets:'🧥',Pants:'👖',Accessories:'🕶️',Shoes:'👟',Bags:'👜',Other:'📦' };
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 p-4 md:p-8">
