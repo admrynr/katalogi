@@ -265,7 +265,7 @@ function Dashboard() {
 function Catalog(){
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
-  const categoriesOrder = ['Shirts','T-Shirts','Jackets','Pants','Accessories','Shoes','Bags'];
+  const categoriesOrder = ['Shirts','TShirts','Jackets','Pants','Accessories','Shoes','Bags'];
 
   useEffect(()=>{ fetchProducts(); }, []);
   async function fetchProducts(){ const { data } = await supabase.from('products').select('*, brands(name)').eq('available', true).order('created_at', { ascending: false }); setProducts(data || []); }
