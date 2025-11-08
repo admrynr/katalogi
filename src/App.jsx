@@ -112,7 +112,7 @@ function Dashboard() {
   const [form, setForm] = useState({ id:null, code:'', name:'', brand_name:'', brand_id:null, category:'Shirts', price:'', available:true, affiliate_url:'', image_url:'' });
   const [file, setFile] = useState(null);
   const [search, setSearch] = useState('');
-  const categories = ['Shirts','T-Shirts','Jackets','Pants','Accessories','Shoes','Bags'];
+  const categories = ['Shirts','TShirts','Jackets','Pants','Accessories','Shoes','Bags'];
 
   useEffect(()=>{ if (!user) return; fetchProducts(); fetchBrands(); }, [user]);
 
