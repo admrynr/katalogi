@@ -267,6 +267,20 @@ function Catalog(){
   const [search, setSearch] = useState('');
   const categoriesOrder = ['Shirts','TShirts','Jackets','Pants','Accessories','Shoes','Bags'];
 
+  const handleDownload = async (url, filename) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = filename || 'file';
+    link.click();
+    window.URL.revokeObjectURL(link.href);
+  } catch (err) {
+    console.error('Download gagal', err);
+  }
+};
+
   useEffect(()=>{ fetchProducts(); }, []);
   async function fetchProducts(){ const { data } = await supabase.from('products').select('*, brands(name)').eq('available', true).order('created_at', { ascending: false }); setProducts(data || []); }
 
@@ -282,23 +296,44 @@ function Catalog(){
         <h1 className="text-2xl text-gray-900 font-bold mb-4">Katalog Produk</h1>
         <input placeholder="Cari kode / nama / brand..." value={search} onChange={(e)=>setSearch(e.target.value)} className="w-full border p-2 rounded-lg mb-6 bg-white dark:bg-gray-800 dark:border-gray-700" />
 
-        {Object.keys(grouped).map(cat => { const items = grouped[cat]; if (!items || items.length===0) return null; return (
-          <section key={cat} className="mb-8">
-            <h2 className="text-lg font-semibold mb-3">{categoryIcons[cat] || '📦'} {cat}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {items.map(p => (
-                <div key={p.id} className="border rounded-xl p-2 flex flex-col bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-300">
-                  {p.image_url ? <img src={p.image_url} alt={p.name} className="w-full h-36 object-cover rounded-lg mb-1" /> : <div className="w-full h-36 bg-gray-100 dark:bg-gray-700 rounded-lg mb-1 flex items-center justify-center text-gray-400">No Image</div>}
-                  <p className="text-xs text-gray-400">{p.code}</p>
-                  <h3 className="font-semibold text-sm">{p.name}</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-300">{p.brands?.name || '—'}</p>
-                  <p className="text-sm font-bold mt-1">Rp{formatPrice(p.price)}</p>
-                  {p.affiliate_url && (<a href={normalizeAffiliate(p.affiliate_url)} target="_blank" rel="noopener noreferrer" className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-full text-center hover:bg-blue-700 transition">Beli Sekarang</a>)}
-                </div>
-              ))}
-            </div>
-          </section>
-        );})}
+        {Object.keys(grouped).map(cat => {
+  const items = grouped[cat];
+  if (!items || items.length === 0) return null;
+  return (
+    <section key={cat} className="mb-8">
+      <h2 className="text-lg font-semibold mb-3">{categoryIcons[cat] || '📦'} {cat}</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {items.map(p => (
+          <div key={p.id} className="border rounded-xl p-2 flex flex-col bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-300">
+            {p.image_url 
+              ? <img src={p.image_url} alt={p.name} className="w-full h-36 object-cover rounded-lg mb-1" /> 
+              : <div className="w-full h-36 bg-gray-100 dark:bg-gray-700 rounded-lg mb-1 flex items-center justify-center text-gray-400">No Image</div>
+            }
+            <p className="text-xs text-gray-400">{p.code}</p>
+            <h3 className="font-semibold text-sm">{p.name}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-300">{p.brands?.name || '—'}</p>
+            <p className="text-sm font-bold mt-1">Rp{formatPrice(p.price)}</p>
+
+            {p.affiliate_url && (
+              <a href={normalizeAffiliate(p.affiliate_url)} target="_blank" rel="noopener noreferrer" className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-full text-center hover:bg-blue-700 transition">Beli Sekarang</a>
+            )}
+
+{p.image_url && (
+  <button
+    onClick={() => handleDownload(p.image_url, `${p.name}${p.image_url.substring(p.image_url.lastIndexOf('.'))}`)}
+    className="mt-2 bg-green-600 text-white text-xs py-1 rounded-full text-center hover:bg-green-700 transition"
+  >
+    Download Gambar
+  </button>
+)}
+
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+})}
+
       </div>
     </div>
   );
