@@ -10,12 +10,12 @@ import React, { useEffect, useRef, useState, createContext } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
+import { supabase } from "./lib/supabase";
+import LookDetail from './LookDetail';
+import GeneratedHistory from "./GeneratedHistory";
 
-// --- Supabase setup ---
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+
+
 
 // --- Auth Context ---
 const AuthContext = createContext();
@@ -87,8 +87,12 @@ function Header({ dark, setDark }) {
         <div><Link to="/catalog" className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Katalog<span className="text-gray-400">in</span></Link></div>
         <nav className="flex items-center gap-3 text-sm">
           <Link to="/catalog" className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">Katalog</Link>
-          {user ? (<><Link to="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">Dashboard</Link><button onClick={handleLogout} className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full hover:bg-blue-700 transition">Logout</button></>) : (<Link to="/login" className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full hover:bg-blue-700 transition">Login</Link>)}
-          <button aria-label="Toggle theme" onClick={() => setDark(v=>!v)} className="fixed bottom-6 right-6 ml-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 rounded-full transition-colors duration-300">{dark ? '☀️' : '🌙'}</button>
+          {user ? (
+            <>
+              <Link to="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">Dashboard</Link>
+              <Link to="/history" className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">History</Link>
+              <button onClick={handleLogout} className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full hover:bg-blue-700 transition">Logout</button></>) : (<Link to="/login" className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full hover:bg-blue-700 transition">Login</Link>)}
+              <button aria-label="Toggle theme" onClick={() => setDark(v=>!v)} className="fixed bottom-6 right-6 ml-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 rounded-full transition-colors duration-300">{dark ? '☀️' : '🌙'}</button>
         </nav>
       </div>
     </header>
@@ -181,6 +185,20 @@ function Dashboard() {
   categories.forEach(c => grouped[c]=[]);
   filtered.forEach(p => { const cat = categories.includes(p.category) ? p.category : 'Other'; if (!grouped[cat]) grouped[cat]=[]; grouped[cat].push(p); });
 
+    const handleDownload = async (url, filename) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename || 'file';
+      link.click();
+      window.URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error('Download gagal', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -247,7 +265,16 @@ function Dashboard() {
                         <button onClick={()=>handleEdit(p)} className="bg-blue-600 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-700">Edit</button>
                         <button onClick={()=>
                           handleConfirmDelete(p.id)
-                        } className="bg-red-100 text-red-600 px-3 py-1 rounded-md text-xs">Hapus</button></div>
+                        } className="bg-red-100 text-red-600 px-3 py-1 rounded-md text-xs">Hapus</button>
+                      </div>
+                        {p.image_url && (
+                          <button
+                            onClick={() => handleDownload(p.image_url, `${p.name}${p.image_url.substring(p.image_url.lastIndexOf('.'))}`)}
+                            className="mt-2 bg-blue-600 text-white text-xs px-3 py-1 rounded-md text-center hover:bg-blue-700 transition"
+                          >
+                            Download Gambar
+                          </button>
+                        )}
                     </div>
                   ))}
                 </div>
@@ -266,23 +293,74 @@ function Catalog(){
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
   const categoriesOrder = ['Shirts','TShirts','Jackets','Pants','Accessories','Shoes','Bags'];
+  // --- Mix & Match ---
+  const [mmOpen, setMMOpen] = useState(false);
+  const [mmSelected, setMMSelected] = useState({});
+  const [mmLoading, setMMLoading] = useState(false);
+  const [mmDone, setMMDone] = useState(false);
+  const [mmResultUrl, setMMResultUrl] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const handleDownload = async (url, filename) => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.download = filename || 'file';
-    link.click();
-    window.URL.revokeObjectURL(link.href);
-  } catch (err) {
-    console.error('Download gagal', err);
-  }
-};
+  
+
 
   useEffect(()=>{ fetchProducts(); }, []);
   async function fetchProducts(){ const { data } = await supabase.from('products').select('*, brands(name)').eq('available', true).order('created_at', { ascending: false }); setProducts(data || []); }
+
+  const handleGenerateLook = async () => {
+  setSaving(true);
+
+  // ✓ AMBIL USER DI SINI
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) {
+    toast.warning("Login untuk mengakses fitur ini.");
+    setSaving(false);
+    return;
+  }  setMMLoading(true);
+  setMMDone(false);
+
+  const selected = Object.values(mmSelected);
+  if (selected.length === 0) {
+    alert("Pilih minimal 1 item");
+    setMMLoading(false);
+    return;
+  }
+
+  // Dummy: ambil gambar pertama
+  const dummyUrl = selected[0].image_url;
+
+  // Ambil array product id
+  const ids = selected.map(p => p.id);
+
+  // Combo ID random
+  const comboId = Math.random().toString(36).substring(2, 9);
+
+  //url hasil generate
+  const url = `${window.location.origin}/look/${comboId}`;
+
+
+  // Simpan ke Supabase
+  const { error } = await supabase.from("combos").insert({
+    id: comboId,
+    items: ids,
+    image_url: dummyUrl,
+    created_at: new Date(),
+    created_by: user.id,   // wajib
+    generated_url: url
+  });
+
+  if (error) {
+    console.error(error);
+    alert("Gagal menyimpan combo");
+    setMMLoading(false);
+    return;
+  }
+
+  setMMResultUrl(url);
+  setMMDone(true);
+  setMMLoading(false);
+};
+
 
   const filtered = products.filter(p => { const q = search.trim().toLowerCase(); if (!q) return true; return (p.name||'').toLowerCase().includes(q) || (p.brands?.name||'').toLowerCase().includes(q) || (p.code||'').toLowerCase().includes(q); });
 
@@ -318,15 +396,6 @@ function Catalog(){
               <a href={normalizeAffiliate(p.affiliate_url)} target="_blank" rel="noopener noreferrer" className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-full text-center hover:bg-blue-700 transition">Beli Sekarang</a>
             )}
 
-{p.image_url && (
-  <button
-    onClick={() => handleDownload(p.image_url, `${p.name}${p.image_url.substring(p.image_url.lastIndexOf('.'))}`)}
-    className="mt-2 bg-green-600 text-white text-xs py-1 rounded-full text-center hover:bg-green-700 transition"
-  >
-    Download Gambar
-  </button>
-)}
-
           </div>
         ))}
       </div>
@@ -335,7 +404,106 @@ function Catalog(){
 })}
 
       </div>
+      {/* Floating Mix & Match Button */}
+      <button
+        onClick={() => setMMOpen(true)}
+        className="fixed bottom-4 left-4 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg z-50 hover:bg-blue-700"
+      >
+        Mix & Match
+      </button>
+
+      
+  {/* ---------------- MIX & MATCH MODAL ---------------- */}
+{mmOpen && (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center">
+    <div className="bg-white dark:bg-gray-900 dark:text-gray-100 w-full md:w-96 max-h-[90vh] rounded-t-2xl md:rounded-xl overflow-y-auto">
+      
+      {/* HEADER */}
+      <div className="p-4 border-b flex justify-between items-center sticky top-0 dark:bg-gray-900 dark:text-gray-100 bg-white z-10">
+        <h2 className="text-lg font-semibold">Mix & Match</h2>
+        <button onClick={() => setMMOpen(false)}>✕</button>
+      </div>
+
+      {/* BODY */}
+      <div className="p-4 space-y-4">
+        {Object.keys(grouped).map(category => {
+          const items = grouped[category];
+          if (!items || items.length === 0) return null;
+
+          return (
+            <div key={category}>
+              <p className="font-medium mb-2">{category}</p>
+              <div className="grid grid-cols-3 gap-3">
+                {items.map(p => {
+                  const active = mmSelected[category]?.id === p.id;
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() =>
+                        setMMSelected(prev => ({ ...prev, [category]: p }))
+                      }
+                      className={`border rounded-lg overflow-hidden cursor-pointer ${
+                        active ? "border-blue-600" : "border-gray-300"
+                      }`}
+                    >
+                      <img src={p.image_url} className="w-full h-24 object-cover" />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* FOOTER */}
+      <div className="p-4 border-t bg-white dark:bg-gray-900 dark:text-gray-100 sticky bottom-0">
+
+        {/* Loading */}
+        {mmLoading && (
+          <button className="w-full bg-gray-300 px-4 py-2 rounded-lg">
+            Generating...
+          </button>
+        )}
+
+        {/* Done */}
+        {!mmLoading && mmDone && (
+          <div className="space-y-2">
+            <input
+              readOnly
+              value={mmResultUrl}
+              className="w-full border px-3 py-2 rounded-lg"
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(mmResultUrl);
+                toast.success("Berhasil menyalin link!");
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Copy URL
+            </button>
+          </div>
+        )}
+
+        {/* Generate Button */}
+        {!mmLoading && !mmDone && (
+          <button
+            onClick={handleGenerateLook}
+            className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg"
+          >
+            Generate Look
+          </button>
+        )}
+
+      </div>
     </div>
+  </div>
+)}
+{/* -------------- END MODAL -------------- */}
+
+    </div>
+    
   );
 }
 
@@ -381,6 +549,8 @@ export default function App(){ const [dark, setDark] = useTheme();
             <Route path="/catalog" element={<Catalog />} />
             <Route path="/" element={<Navigate to="/catalog" replace />} />
             <Route path="*" element={<Navigate to="/catalog" replace />} />
+            <Route path="/look/:id" element={<LookDetail />} />
+            <Route path="/history" element={<GeneratedHistory />} />
           </Routes>
         </div>
       </Router>
