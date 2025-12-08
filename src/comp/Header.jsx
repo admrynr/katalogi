@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from "../lib/AuthContext";
 import { useState } from "react";
+import { supabase } from '../lib/supabase';
 
 export default function Header({ dark, setDark }) {
   const { user } = useAuth();

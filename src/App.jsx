@@ -8,6 +8,7 @@
 
 import React, { useEffect, useRef, useState, createContext } from 'react';
 import { AuthProvider } from "./lib/AuthContext";
+import { useAuth } from "./lib/AuthContext";
 import { createClient } from '@supabase/supabase-js';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
@@ -23,7 +24,7 @@ function normalizeAffiliate(url) { if (!url) return null; return url.startsWith(
 
 // ------------------ Brand-enabled Dashboard (with search + grouped view) ------------------
 function Dashboard() {
-  const { user } = React.useContext(AuthContext);
+  const { user } = useAuth();
   const fileRef = useRef(null);
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]); // list of brands for suggestions
@@ -426,7 +427,7 @@ function Catalog(){
 }
 
 // --- ProtectedRoute ---
-const ProtectedRoute = ({ children }) => { const { user } = React.useContext(AuthContext); if (!user) return <Navigate to="/login" replace />; return children; };
+const ProtectedRoute = ({ children }) => { const { user } = useAuth(); if (!user) return <Navigate to="/login" replace />; return children; };
 
 // --- Login ---
 function Login(){ const navigate = useNavigate(); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [error,setError]=useState('');
