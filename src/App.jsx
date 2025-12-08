@@ -7,97 +7,15 @@
 // - preserves dark mode, auto-logout, uploads, grouped catalog, affiliate link handling
 
 import React, { useEffect, useRef, useState, createContext } from 'react';
+import { AuthProvider } from "./lib/AuthContext";
 import { createClient } from '@supabase/supabase-js';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { supabase } from "./lib/supabase";
 import LookDetail from './LookDetail';
 import GeneratedHistory from "./GeneratedHistory";
-
-
-
-
-// --- Auth Context ---
-const AuthContext = createContext();
-function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function init() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
-        setUser(session?.user || null);
-      } catch (e) {
-        console.error('getSession failed', e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    init();
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setUser(session?.user || null);
-    });
-
-    // auto-logout check (interval)
-    const interval = setInterval(async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const exp = data?.session?.expires_at;
-        if (exp && Date.now() / 1000 > exp) {
-          await supabase.auth.signOut();
-          toast.error('Sesi berakhir, silakan login kembali');
-        }
-      } catch (e) { /* ignore */ }
-    }, 60 * 1000);
-
-    return () => {
-      mounted = false;
-      try { listener.subscription.unsubscribe(); } catch (e) {}
-      clearInterval(interval);
-    };
-  }, []);
-
-  if (loading) return <div className="text-center p-8">Loading session...</div>;
-
-  return <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>;
-}
-
-// --- Theme hook ---
-function useTheme() {
-  const [dark, setDark] = useState(() => { try { return localStorage.getItem('theme') === 'dark'; } catch { return false; } });
-  useEffect(() => { try { if (dark) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch {} }, [dark]);
-  return [dark, setDark];
-}
-
-// --- Header ---
-function Header({ dark, setDark }) {
-  const { user } = React.useContext(AuthContext);
-  const navigate = useNavigate();
-  async function handleLogout() { await supabase.auth.signOut(); toast.success('Berhasil logout!'); navigate('/login'); }
-  return (
-    <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-        <div><Link to="/catalog" className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Katalog<span className="text-gray-400">in</span></Link></div>
-        <nav className="flex items-center gap-3 text-sm">
-          <Link to="/catalog" className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">Katalog</Link>
-          {user ? (
-            <>
-              <Link to="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">Dashboard</Link>
-              <Link to="/history" className="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">History</Link>
-              <button onClick={handleLogout} className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full hover:bg-blue-700 transition">Logout</button></>) : (<Link to="/login" className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full hover:bg-blue-700 transition">Login</Link>)}
-              <button aria-label="Toggle theme" onClick={() => setDark(v=>!v)} className="fixed bottom-6 right-6 ml-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 rounded-full transition-colors duration-300">{dark ? '☀️' : '🌙'}</button>
-        </nav>
-      </div>
-    </header>
-  );
-}
+import { useTheme } from './lib/darkTheme';
+import Header from './comp/Header';
 
 // --- Utilities ---
 function formatPrice(p) { const n = Number(p); if (!Number.isFinite(n)) return '—'; return n.toLocaleString('id-ID'); }
