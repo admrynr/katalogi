@@ -1,12 +1,18 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from "../lib/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from '../lib/supabase';
 
 export default function Header({ dark, setDark }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+
 
   async function handleLogout() {
     await supabase.auth.signOut();

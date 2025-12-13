@@ -17,6 +17,9 @@ import LookDetail from './LookDetail';
 import GeneratedHistory from "./GeneratedHistory";
 import { useTheme } from './lib/darkTheme';
 import Header from './comp/Header';
+import ExportCard from './comp/ExportCard';
+import { downloadCard } from "./lib/downloadCard";
+
 
 // --- Utilities ---
 function formatPrice(p) { const n = Number(p); if (!Number.isFinite(n)) return '—'; return n.toLocaleString('id-ID'); }
@@ -36,6 +39,9 @@ function Dashboard() {
   const [file, setFile] = useState(null);
   const [search, setSearch] = useState('');
   const categories = ['Shirts','TShirts','Jackets','Pants','Accessories','Shoes','Bags'];
+  const exportRef = useRef(null);
+  const [exportProduct, setExportProduct] = useState(null);
+
 
   useEffect(()=>{ if (!user) return; fetchProducts(); fetchBrands(); }, [user]);
 
@@ -119,6 +125,7 @@ function Dashboard() {
   };
 
   return (
+  <>
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-4">Dashboard Produk</h1>
@@ -188,11 +195,17 @@ function Dashboard() {
                       </div>
                         {p.image_url && (
                           <button
-                            onClick={() => handleDownload(p.image_url, `${p.name}${p.image_url.substring(p.image_url.lastIndexOf('.'))}`)}
-                            className="mt-2 bg-blue-600 text-white text-xs px-3 py-1 rounded-md text-center hover:bg-blue-700 transition"
-                          >
-                            Download Gambar
-                          </button>
+                          onClick={() => {
+                            setExportProduct(p);
+                            setTimeout(() => {
+                              downloadCard(exportRef, `${p.name}-reels.png`);
+                            }, 100);
+                          }}
+                          className="mt-2 bg-black hover:bg-gray-700 text-white text-xs px-3 py-1 rounded-md"
+                        >
+                          Download Reels Card
+                        </button>
+
                         )}
                     </div>
                   ))}
@@ -204,7 +217,15 @@ function Dashboard() {
         </div>
       </div>
     </div>
+
+    {/* EXPORT RENDER (hidden) */}
+    <div className="fixed -left-[9999px] top-0">
+      <ExportCard ref={exportRef} product={exportProduct} />
+    </div>
+  </>
   );
+
+
 }
 
 // ------------------ Catalog (reads brands relation) ------------------
