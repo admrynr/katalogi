@@ -2,6 +2,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from "../lib/AuthContext";
 import { useState, useEffect } from "react";
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 export default function Header({ dark, setDark }) {
   const { user } = useAuth();

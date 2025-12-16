@@ -1,9 +1,12 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase"; // sesuaikan path kamu
 import { useAuth } from "./lib/AuthContext";
 import { downloadFile } from "./lib/downloadFile";
 import { toast } from "sonner";
+import React from "react";
+import { downloadCard } from "./lib/downloadCard";
+import ExportCard from "./comp/ExportCard";
 
 export default function LookDetail() {
   const { user } = useAuth();
@@ -13,6 +16,8 @@ export default function LookDetail() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 const [modalOpen, setModalOpen] = useState(false);
+  const exportRef = useRef(null);
+  const [exportProduct, setExportProduct] = useState(null);
 
 async function handleUpload(e) {
   try {
@@ -100,6 +105,7 @@ function normalizeAffiliate(url) { if (!url) return null; return url.startsWith(
   if (!combo) return <div className="p-4">Combo tidak ditemukan.</div>;
 
   return (
+    <>
     <div className="p-4 space-y-4">
 
     <h2 className="text-lg font-semibold">Hasil Mix and Match</h2>
@@ -141,7 +147,13 @@ function normalizeAffiliate(url) { if (!url) return null; return url.startsWith(
             <p className="text-sm font-bold mt-1">Rp{formatPrice(item.price)}</p>
 
             {item.affiliate_url && (
-              <a href={normalizeAffiliate(item.affiliate_url)} target="_blank" rel="noopener noreferrer" className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-md text-center hover:bg-blue-700 transition">Beli Sekarang</a>
+              <button
+              onClick={() => {
+                navigator.clipboard.writeText(item.affiliate_url);
+                toast.success("Berhasil menyalin link!");
+              }} className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-md text-center hover:bg-blue-700 transition">
+                Copy Aff Link
+              </button>
             )}
 
             {user && (
@@ -151,6 +163,21 @@ function normalizeAffiliate(url) { if (!url) return null; return url.startsWith(
               >
                 Download Gambar
               </button>
+            )}
+
+            {item.image_url && (
+              <button
+              onClick={() => {
+                setExportProduct(item);
+                setTimeout(() => {
+                  downloadCard(exportRef, `${item.name}-reels.png`);
+                }, 100);
+              }}
+              className="mt-2 bg-black hover:bg-gray-700 text-white text-xs px-3 py-1 rounded-md"
+            >
+              Download Reels Card
+            </button>
+
             )}
 
           </div>
@@ -189,5 +216,10 @@ function normalizeAffiliate(url) { if (!url) return null; return url.startsWith(
 )}
 
     </div>
+        {/* EXPORT RENDER (hidden) */}
+    <div className="fixed -left-[9999px] top-0">
+      <ExportCard ref={exportRef} product={exportProduct} />
+    </div>
+    </>
   );
 }

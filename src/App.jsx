@@ -19,6 +19,10 @@ import { useTheme } from './lib/darkTheme';
 import Header from './comp/Header';
 import ExportCard from './comp/ExportCard';
 import { downloadCard } from "./lib/downloadCard";
+import { apiFetch } from "./lib/api";
+import { downloadFile } from "./lib/downloadFile";
+
+
 
 
 // --- Utilities ---
@@ -193,6 +197,23 @@ function Dashboard() {
                           handleConfirmDelete(p.id)
                         } className="bg-red-100 text-red-600 px-3 py-1 rounded-md text-xs">Hapus</button>
                       </div>
+                      {p.affiliate_url && (
+                        <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(p.affiliate_url);
+                          toast.success("Berhasil menyalin link!");
+                        }} className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-md text-center hover:bg-blue-700 transition">
+                          Copy Aff Link
+                        </button>
+                      )}
+                      {user && (
+                        <button
+                          onClick={() => downloadFile(p.image_url, `${p.name}${p.image_url.substring(p.image_url.lastIndexOf('.'))}`)}
+                          className="mt-2 bg-blue-600 text-white text-xs px-3 py-1 rounded-md text-center hover:bg-blue-700 transition"
+                        >
+                          Download Gambar
+                        </button>
+                      )}
                         {p.image_url && (
                           <button
                           onClick={() => {
@@ -240,66 +261,118 @@ function Catalog(){
   const [mmDone, setMMDone] = useState(false);
   const [mmResultUrl, setMMResultUrl] = useState("");
   const [saving, setSaving] = useState(false);
-
-  
+  const [mmPrompt, setMMPrompt] = useState("");
+  const [mmProgress, setMMProgress] = useState("");
+  const [mmComboId, setMMComboId] = useState(null);
+  const [mmImageUrl, setMMImageUrl] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("9:16");
 
 
   useEffect(()=>{ fetchProducts(); }, []);
   async function fetchProducts(){ const { data } = await supabase.from('products').select('*, brands(name)').eq('available', true).order('created_at', { ascending: false }); setProducts(data || []); }
 
   const handleGenerateLook = async () => {
-  setSaving(true);
+  try {
+    setMMLoading(true);
+    setMMDone(false);
+    setMMProgress("Mempersiapkan gambar...");
 
-  // ✓ AMBIL USER DI SINI
-  const { data: { user }, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !user) {
-    toast.warning("Login untuk mengakses fitur ini.");
-    setSaving(false);
-    return;
-  }  setMMLoading(true);
-  setMMDone(false);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.warning("Login diperlukan");
+      return;
+    }
 
-  const selected = Object.values(mmSelected);
-  if (selected.length === 0) {
-    alert("Pilih minimal 1 item");
+    const selected = Object.values(mmSelected);
+    if (selected.length === 0) {
+      toast.warning("Pilih minimal 1 item");
+      return;
+    }
+
+    const comboId =  
+    Math.random().toString(36).substring(2, 5) +
+    Math.random().toString(36).substring(2, 5);
+
+    setMMComboId(comboId);
+
+    // URL halaman combo
+    const comboUrl = `${window.location.origin}/look/${comboId}`;
+
+    const images = selected.map(p => p.image_url);
+
+    const basePrompt = `
+a real human wearing the combined outfit,
+masculine, minimal, vintage elegant style,
+full body shot,
+fashion photography, studio lighting,
+realistic fabric texture,
+natural shadows,
+no illustration, no cartoon
+`.trim();
+
+    const finalPrompt = `${basePrompt}\n${mmPrompt || ""}`;
+
+    // 🚀 CALL API (NO POLLING REPLICATE)
+    await apiFetch("/api/generate-combo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        combo_id: comboId,
+        items: selected.map(p => p.id),
+        images,
+        prompt: finalPrompt,
+        aspect_ratio: aspectRatio,   // ✅ langsung
+        generated_url: comboUrl,
+        user_id: user.id,
+      }),
+    });
+
+    setMMProgress("Generating image with AI...");
+
+    // ⏳ POLLING SUPABASE (BENAR)
+    let imageUrl = null;
+
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+
+      const { data } = await supabase
+        .from("combos")
+        .select("image_url, status")
+        .eq("id", comboId)
+        .maybeSingle();
+        
+
+      if (data?.status === "failed") {
+        throw new Error("Generate gagal");
+      }
+
+      if (data?.image_url) {
+        imageUrl = data.image_url;
+        break;
+      }
+
+      setMMProgress("AI masih memproses...");
+    }
+
+    if (!imageUrl) {
+      throw new Error("Generate timeout");
+    }
+
+    setMMImageUrl(imageUrl);
+    setMMResultUrl(comboUrl);
+    setMMDone(true);
+    setMMProgress("");
+
+  } catch (err) {
+    console.error(err);
+    toast.error(err.message || "Terjadi kesalahan");
+  } finally {
     setMMLoading(false);
-    return;
   }
-
-  // Dummy: ambil gambar pertama
-  const dummyUrl = selected[0].image_url;
-
-  // Ambil array product id
-  const ids = selected.map(p => p.id);
-
-  // Combo ID random
-  const comboId = Math.random().toString(36).substring(2, 9);
-
-  //url hasil generate
-  const url = `${window.location.origin}/look/${comboId}`;
-
-
-  // Simpan ke Supabase
-  const { error } = await supabase.from("combos").insert({
-    id: comboId,
-    items: ids,
-    image_url: dummyUrl,
-    created_at: new Date(),
-    created_by: user.id,   // wajib
-    generated_url: url
-  });
-
-  if (error) {
-    console.error(error);
-    alert("Gagal menyimpan combo");
-    setMMLoading(false);
-    return;
-  }
-
-  setMMResultUrl(url);
-  setMMDone(true);
-  setMMLoading(false);
 };
+
+
+
 
 
   const filtered = products.filter(p => { const q = search.trim().toLowerCase(); if (!q) return true; return (p.name||'').toLowerCase().includes(q) || (p.brands?.name||'').toLowerCase().includes(q) || (p.code||'').toLowerCase().includes(q); });
@@ -315,33 +388,33 @@ function Catalog(){
         <input placeholder="Cari kode / nama / brand..." value={search} onChange={(e)=>setSearch(e.target.value)} className="w-full border p-2 rounded-lg mb-6 bg-white dark:bg-gray-800 dark:border-gray-700" />
 
         {Object.keys(grouped).map(cat => {
-  const items = grouped[cat];
-  if (!items || items.length === 0) return null;
-  return (
-    <section key={cat} className="mb-8">
-      <h2 className="text-lg font-semibold mb-3">{categoryIcons[cat] || '📦'} {cat}</h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {items.map(p => (
-          <div key={p.id} className="border rounded-xl p-2 flex flex-col bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-300">
-            {p.image_url 
-              ? <img src={p.image_url} alt={p.name} className="w-full h-36 object-cover rounded-lg mb-1" /> 
-              : <div className="w-full h-36 bg-gray-100 dark:bg-gray-700 rounded-lg mb-1 flex items-center justify-center text-gray-400">No Image</div>
-            }
-            <p className="text-xs text-gray-400">{p.code}</p>
-            <h3 className="font-semibold text-sm">{p.name}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-300">{p.brands?.name || '—'}</p>
-            <p className="text-sm font-bold mt-1">Rp{formatPrice(p.price)}</p>
+          const items = grouped[cat];
+          if (!items || items.length === 0) return null;
+          return (
+            <section key={cat} className="mb-8">
+              <h2 className="text-lg font-semibold mb-3">{categoryIcons[cat] || '📦'} {cat}</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {items.map(p => (
+                  <div key={p.id} className="border rounded-xl p-2 flex flex-col bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-300">
+                    {p.image_url 
+                      ? <img src={p.image_url} alt={p.name} className="w-full h-36 object-cover rounded-lg mb-1" /> 
+                      : <div className="w-full h-36 bg-gray-100 dark:bg-gray-700 rounded-lg mb-1 flex items-center justify-center text-gray-400">No Image</div>
+                    }
+                    <p className="text-xs text-gray-400">{p.code}</p>
+                    <h3 className="font-semibold text-sm">{p.name}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-300">{p.brands?.name || '—'}</p>
+                    <p className="text-sm font-bold mt-1">Rp{formatPrice(p.price)}</p>
 
-            {p.affiliate_url && (
-              <a href={normalizeAffiliate(p.affiliate_url)} target="_blank" rel="noopener noreferrer" className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-full text-center hover:bg-blue-700 transition">Beli Sekarang</a>
-            )}
+                    {p.affiliate_url && (
+                      <a href={normalizeAffiliate(p.affiliate_url)} target="_blank" rel="noopener noreferrer" className="mt-2 bg-blue-600 text-white text-xs py-1 rounded-full text-center hover:bg-blue-700 transition">Beli Sekarang</a>
+                    )}
 
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-})}
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
 
       </div>
       {/* Floating Mix & Match Button */}
@@ -394,6 +467,7 @@ function Catalog(){
             </div>
           );
         })}
+
       </div>
 
       {/* FOOTER */}
@@ -401,14 +475,22 @@ function Catalog(){
 
         {/* Loading */}
         {mmLoading && (
-          <button className="w-full bg-gray-300 px-4 py-2 rounded-lg">
-            Generating...
-          </button>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">{mmProgress}</p>
+            <button className="w-full bg-gray-300 px-4 py-2 rounded-lg">
+              Generating...
+            </button>
+          </div>
         )}
 
         {/* Done */}
         {!mmLoading && mmDone && (
           <div className="space-y-2">
+              <img
+                src={mmImageUrl}
+                alt="Generated Look"
+                className="h-full w-auto rounded-md border"
+              />
             <input
               readOnly
               value={mmResultUrl}
@@ -428,12 +510,30 @@ function Catalog(){
 
         {/* Generate Button */}
         {!mmLoading && !mmDone && (
+          <>
+          <textarea
+            placeholder="Tambahkan prompt (opsional)..."
+            value={mmPrompt}
+            onChange={(e) => setMMPrompt(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-800"
+          />
+          <select
+            value={aspectRatio}
+            onChange={e => setAspectRatio(e.target.value)}
+            className="border rounded p-2"
+          >
+            <option value="1:1">Square (1:1)</option>
+            <option value="4:5">Instagram Feed (4:5)</option>
+            <option value="9:16">Portrait / Reels (9:16)</option>
+          </select>
+
           <button
             onClick={handleGenerateLook}
             className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg"
           >
             Generate Look
           </button>
+          </>
         )}
 
       </div>
