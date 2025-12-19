@@ -429,16 +429,16 @@ no illustration, no cartoon
   {/* ---------------- MIX & MATCH MODAL ---------------- */}
 {mmOpen && (
   <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center">
-    <div className="bg-white dark:bg-gray-900 dark:text-gray-100 w-full md:w-96 max-h-[90vh] rounded-t-2xl md:rounded-xl overflow-y-auto">
+    <div className="bg-white dark:bg-gray-900 dark:text-gray-100 w-full md:w-96 h-[90vh] rounded-t-2xl md:rounded-xl overflow-y-auto flex flex-col">
       
       {/* HEADER */}
-      <div className="p-4 border-b flex justify-between items-center sticky top-0 dark:bg-gray-900 dark:text-gray-100 bg-white z-10">
+      <div className="p-4 border-b shrink-0 flex justify-between items-center sticky top-0 dark:bg-gray-900 dark:text-gray-100 bg-white z-10">
         <h2 className="text-lg font-semibold">Mix & Match</h2>
         <button onClick={() => setMMOpen(false)}>✕</button>
       </div>
 
       {/* BODY */}
-      <div className="p-4 space-y-4">
+      <div className="flex-1 p-4 space-y-4 overflow-y-auto">
         {Object.keys(grouped).map(category => {
           const items = grouped[category];
           if (!items || items.length === 0) return null;
@@ -489,7 +489,7 @@ no illustration, no cartoon
               <img
                 src={mmImageUrl}
                 alt="Generated Look"
-                className="h-full w-auto rounded-md border"
+                className="h-auto w-full max-h-full object-contain rounded-md border"
               />
             <input
               readOnly
