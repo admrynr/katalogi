@@ -56,32 +56,29 @@ export default function GeneratedHistory() {
             key={c.id}
             className="border rounded-xl overflow-hidden bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm"
           >
+            <Link
+              to={`/look/${c.id}`}
+              className="hover:scale-110 hover:outline-2 hover:outline-offset-2 hover:outline-violet-500"
+            >
             {/* Preview gambar */}
             {c.image_url ? (
               <img
                 src={c.image_url}
                 alt="Generated Look"
-                className="w-full h-40 object-cover"
+                className="w-full h-40 object-cover hover:scale-110"
               />
             ) : (
-              <div className="w-full h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400">
+              <div className="w-full h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400 hover:scale-110">
                 No Image
               </div>
             )}
+            </Link>
 
             <div className="p-2 text-xs space-y-2">
               {/* Timestamp */}
               <p className="text-gray-400">
                 {new Date(c.created_at).toLocaleString("id-ID")}
               </p>
-
-              {/* Link ke halaman combo */}
-              <Link
-                to={`/look/${c.id}`}
-                className="block bg-blue-600 text-white text-center py-1 rounded-md"
-              >
-                Lihat Detail
-              </Link>
 
               {/* Link generated_url */}
               {c.generated_url && (

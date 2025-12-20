@@ -124,9 +124,15 @@ function normalizeAffiliate(url) { if (!url) return null; return url.startsWith(
   <div className="text-center mt-3">
     <button
       onClick={() => setModalOpen(true)}
-      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+      className="px-4 py-2 bg-blue-600 text-white rounded-l-lg hover:bg-blue-700 focus:outline-2 focus:outline-offset-2 focus:outline-violet-500 transition"
     >
       Ganti Gambar
+    </button>
+    <button
+      onClick={() => downloadFile(combo.image_url, `combo-${combo.id}.png`)}
+      className="px-4 py-2 bg-gray-700 text-white rounded-r-lg hover:bg-gray-800 focus:outline-2 focus:outline-offset-2 focus:outline-violet-500 transition"
+    >
+      Download Gambar
     </button>
   </div>
 )}
